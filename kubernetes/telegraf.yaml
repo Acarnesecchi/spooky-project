@@ -1,0 +1,78 @@
+# file: telegraf.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: telegraf
+  namespace: messaging
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: telegraf
+  template:
+    metadata:
+      labels:
+        app: telegraf
+    spec:
+      containers:
+      - name: telegraf
+        image: telegraf:1.26
+        env:
+          - name: INFLUX_TOKEN
+            valueFrom:
+              secretKeyRef:
+                name: influxdb-token
+                key: INFLUX_TOKEN
+          - name: INFLUX_ORG
+            value: "spookyCorp"
+          - name: INFLUX_BUCKET
+            value: "pacient"
+          - name: INFLUX_URL
+            value: "http://influxdb.monitoring.svc.cluster.local:8086"
+        volumeMounts:
+          - name: config-volume
+            mountPath: /etc/telegraf/telegraf.conf
+            subPath: telegraf.conf
+      volumes:
+      - name: config-volume
+        configMap:
+          name: telegraf-config
+          items:
+            - key: telegraf.conf
+              path: telegraf.conf
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: telegraf-config
+  namespace: messaging
+data:
+  telegraf.conf: |
+    [global_tags]
+
+    [agent]
+      interval = "1s"
+      round_interval = true
+
+    [[inputs.mqtt_consumer]]
+      # Topic with simple numeric data
+      servers = ["tcp://mosquitto.messaging.svc.cluster.local:1883"]
+      topics = ["existance/distance", "existance/status", "breathheart/#"]
+      data_format = "value"
+      data_type = "float"
+
+    [[inputs.mqtt_consumer]]
+      # Topic with JSON data
+      servers = ["tcp://mosquitto.messaging.svc.cluster.local:1883"]
+      topics = ["existance/direction"]
+      data_format = "json"
+      json_string_fields = ["X", "Y", "Z"]
+
+
+    # Output to InfluxDB
+    [[outputs.influxdb_v2]]
+      urls = ["http://influxdb.monitoring.svc.cluster.local:8086"]
+      token = "${INFLUX_TOKEN}"
+      organization = "spookyCorp"
+      bucket = "pacient"

@@ -1,0 +1,77 @@
+# file: influxdb.yaml
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: influxdb-pvc
+  namespace: monitoring
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 10Gi          # Adjust size as needed
+  storageClassName: do-block-storage   # Replace with your storage class
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: influxdb
+  namespace: monitoring
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: influxdb
+  template:
+    metadata:
+      labels:
+        app: influxdb
+    spec:
+      containers:
+      - name: influxdb
+        image: influxdb:2.7
+        ports:
+          - containerPort: 8086
+        volumeMounts:
+          - name: influxdb-storage
+            mountPath: /var/lib/influxdb2
+          - name: token-volume
+            mountPath: /etc/secret
+            readOnly: true
+        env:
+          - name: DOCKER_INFLUXDB_INIT_MODE
+            value: "setup"
+          - name: DOCKER_INFLUXDB_INIT_USERNAME
+            value: "admin"
+          - name: DOCKER_INFLUXDB_INIT_PASSWORD
+            value: "admin123"
+          - name: DOCKER_INFLUXDB_INIT_ORG
+            value: "spookyCorp"
+          - name: DOCKER_INFLUXDB_INIT_BUCKET
+            value: "pacient"
+          - name: DOCKER_INFLUXDB_INIT_ADMIN_TOKEN_FILE
+            value: /etc/secret/INFLUX_TOKEN
+      volumes:
+      - name: influxdb-storage
+        persistentVolumeClaim:
+          claimName: influxdb-pvc
+      - name: token-volume
+        secret:
+          secretName: influxdb-token
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: influxdb
+  namespace: monitoring
+spec:
+  selector:
+    app: influxdb
+  ports:
+  - port: 8086
+    targetPort: 8086
+    protocol: TCP
+    name: http
+  type: ClusterIP

@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Video Alert with Extra Controls</title>
+    <script src="https://cdn.socket.io/4.0.0/socket.io.min.js"></script>
+    <style>
+        body {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            margin: 0;
+            background-color: #f0f0f0;
+            font-family: Arial, sans-serif;
+        }
+        video {
+            border: 2px solid #333;
+            border-radius: 8px;
+            max-width: 90%;
+            height: auto;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+        }
+        #screamer {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(255, 0, 0, 0.8);
+            color: white;
+            font-size: 3em;
+            font-weight: bold;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+            z-index: 1000;
+        }
+    </style>
+</head>
+<body>
+    <h1>Video Alert Simulation</h1>
+    <video id="video" width="1280" height="720" controls autoplay loop>
+        <source src="https://www.w3schools.com/html/mov_bbb.mp4" type="video/mp4">
+        Your browser does not support the video tag.
+    </video>
+    <div id="screamer">SCREAMER!</div>
+
+    <script>
+        const video = document.getElementById('video');
+        const screamer = document.getElementById('screamer');
+        const socket = io('http://209.38.186.77:3001'); // Connect to backend Service
+
+        // Handle alert
+        socket.on('alert', (alert) => {
+            console.log('Received alert:', alert);
+            if (alert.state === 'alerting') {
+                video.pause();
+                alert(`Alert received: ${alert.message}`);
+            }
+        });
+
+        // Handle volume control
+        socket.on('volume', (volumeData) => {
+            if (volumeData.action === 'up') {
+                video.volume = Math.min(video.volume + 0.1, 1); // Increase volume
+            } else if (volumeData.action === 'down') {
+                video.volume = Math.max(video.volume - 0.1, 0); // Decrease volume
+            }
+        });
+
+        // Handle screamer
+        socket.on('screamer', () => {
+            screamer.style.display = 'flex';
+            setTimeout(() => {
+                screamer.style.display = 'none';
+            }, 3000);
+        });
+    </script>
+</body>
+</html>

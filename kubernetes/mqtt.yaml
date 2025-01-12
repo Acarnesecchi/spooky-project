@@ -1,0 +1,94 @@
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: mosquitto-config
+  namespace: messaging
+data:
+  mosquitto.conf: |
+    persistence true
+    persistence_location /mosquitto/data/
+    log_dest stdout
+    allow_anonymous true
+    listener 1883 0.0.0.0
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mosquitto
+  namespace: messaging
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: mosquitto
+  template:
+    metadata:
+      labels:
+        app: mosquitto
+    spec:
+      containers:
+      - name: mosquitto
+        image: eclipse-mosquitto:2.0
+        volumeMounts:
+          - name: mosquitto-config-volume
+            mountPath: /mosquitto/config
+        ports:
+          - containerPort: 1883   # MQTT
+          - containerPort: 9001   # (Optional) MQTT over WebSocket if you want
+        # If you care about data persistence, mount a PVC for /mosquitto/data
+      volumes:
+      - name: mosquitto-config-volume
+        configMap:
+          name: mosquitto-config
+          items:
+            - key: mosquitto.conf
+              path: mosquitto.conf
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: mosquitto
+  namespace: messaging
+spec:
+  selector:
+    app: mosquitto
+  ports:
+    - name: mqtt
+      port: 1883
+      targetPort: 1883
+      protocol: TCP
+  type: LoadBalancer
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: mosquitto-cluster
+  namespace: messaging
+spec:
+  type: ClusterIP
+  selector:
+    app: mosquitto
+  ports:
+    - port: 1883
+      targetPort: 1883
+      protocol: TCP
+
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-mosquitto-external
+  namespace: messaging
+spec:
+  podSelector:
+    matchLabels:
+      app: mosquitto
+  ingress:
+  - from: []
+    ports:
+    - protocol: TCP
+      port: 1883

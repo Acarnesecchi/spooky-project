@@ -1,0 +1,51 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: video-backend
+  namespace: video
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: video-backend
+  template:
+    metadata:
+      labels:
+        app: video-backend
+    spec:
+      containers:
+      - name: flask-backend
+        image: quay.io/acarnesecchi/video-alerts:backend
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 3001
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: video-backend
+  namespace: video
+spec:
+  selector:
+    app: video-backend
+  ports:
+  - protocol: TCP
+    port: 3001
+    targetPort: 3001
+  type: ClusterIP
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: video-backend-lb
+  namespace: video
+spec:
+  type: LoadBalancer
+  selector:
+    app: video-backend
+  ports:
+    - name: http
+      port: 3001
+      targetPort: 3001
+      protocol: TCP
